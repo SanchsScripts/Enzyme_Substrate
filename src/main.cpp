@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+using namespace std;
 
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
@@ -61,27 +62,34 @@ int main(int argc, char **argv) {
     return 1;
   }
   std::cout << "Client connected\n";
-  std::string client_message(1024, '\0');
-  ssize_t brecvd = recv(client_fd, (void *)&client_message[0], client_message.max_size(), 0);
-  if (brecvd < 0)
-  {
-    std::cerr << "error receiving message from client\n";
-    close(client_fd);
-    close(server_fd);
+  std::string message(1024, '\0');
+  if (recv(client, (void *)&message[0], message.max_size(), 0) == -1){
+    std::cerr << "Listen failed\n";
     return 1;
   }
-  std::cerr << "Client Message (length: " << client_message.size() << ")" << std::endl;
-  std::clog << client_message << std::endl;
-  std::string response = client_message.starts_with("GET / HTTP/1.1\r\n") ? "HTTP/1.1 200 OK\r\n\r\n" : "HTTP/1.1 404 Not Found\r\n\r\n" ;
-  ssize_t bsent = send(client_fd, response.c_str(), response.size(), 0);
-  if (bsent < 0)
-  {
-    std::cerr << "error sending response to client\n";
-    close(client_fd);
-    close(server_fd);
-    return 1;
+  string path;
+  size_t methodEnd = message.find(' ');  // find the index of space
+   size_t methodEnd = message.find(' ');
+  if (methodEnd != std::string::npos) {
+    auto start = methodEnd + 1;
+    auto end = message.find(' ', start);
+    if (end != std::string::npos) {
+        path = message.substr(start, end - start);
+    }
   }
-  close(client_fd);
+  string response;
+  if (path == "/") {
+    response = "HTTP/1.1 200 OK\r\n\r\n";
+  } else if(path.find("/echo/") == 0) {
+    std::string content = path.substr(6);
+    response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content;
+  } else {
+    response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+  }
+
+  send(client, response.c_str(), response.length(), 0);
+  
   close(server_fd);
+
   return 0;
 }
