@@ -113,7 +113,10 @@ int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
-  
+  string directory = "";
+  if (argc >= 3 && string(argv[1]) == "--directory") {
+      directory = argv[2];
+  }
   // You can use print statements as follows for debugging, they'll be visible when running tests.
   std::cout << "Logs from your program will appear here!\n";
 
