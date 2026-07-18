@@ -18,23 +18,7 @@ struct HTTPRequest {
     map<string, string> headers;
     string body;
 };
-
-// Helper function to parse the raw HTTP string into our struct
-HTTPRequest parse_request(const string& request) {
-    HTTPRequest req;
-    stringstream ss(request);
-    string line;
-
-    // 1. Parse the Request Line (e.g., "GET /user-agent HTTP/1.1")
-    if (getline(ss, line)) {
-        // Remove trailing '\r' if it exists
-        if (!line.empty() && line.back() == '\r') {
-            line.pop_back();
-        }
-        istringstream line_ss(line);
-        line_ss >> req.method >> req.path >> req.version;
-    }
-    string compress_gzip(const string& str) {
+string compress_gzip(const string& str) {
     z_stream zs;                        // z_stream is zlib's control structure
     memset(&zs, 0, sizeof(zs));
 
@@ -67,6 +51,22 @@ HTTPRequest parse_request(const string& request) {
     deflateEnd(&zs);
     return outstring;
 }
+// Helper function to parse the raw HTTP string into our struct
+HTTPRequest parse_request(const string& request) {
+    HTTPRequest req;
+    stringstream ss(request);
+    string line;
+
+    // 1. Parse the Request Line (e.g., "GET /user-agent HTTP/1.1")
+    if (getline(ss, line)) {
+        // Remove trailing '\r' if it exists
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        istringstream line_ss(line);
+        line_ss >> req.method >> req.path >> req.version;
+    }
+    
 
     // 2. Parse the Headers
     while (getline(ss, line) && line != "\r" && !line.empty()) {
