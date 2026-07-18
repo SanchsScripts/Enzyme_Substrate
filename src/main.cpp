@@ -1,4 +1,5 @@
 #include <iostream>
+#include<bits/stdc++.h>
 #include <cstdlib>
 #include <string>
 #include <cstring>
@@ -8,7 +9,50 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 using namespace std;
+struct HTTPRequest {
+    string method;
+    string path;
+    string version;
+    map<string, string> headers;
+    string body;
+};
 
+// Helper function to parse the raw HTTP string into our struct
+HTTPRequest parse_request(const string& request) {
+    HTTPRequest req;
+    stringstream ss(request);
+    string line;
+
+    // 1. Parse the Request Line (e.g., "GET /user-agent HTTP/1.1")
+    if (getline(ss, line)) {
+        // Remove trailing '\r' if it exists
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        istringstream line_ss(line);
+        line_ss >> req.method >> req.path >> req.version;
+    }
+
+    // 2. Parse the Headers
+    while (getline(ss, line) && line != "\r" && !line.empty()) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        size_t pos = line.find(":");
+        if (pos != string::npos) {
+            string header_name = line.substr(0, pos);
+            // Skip the colon and the space after it
+            size_t value_start = pos + 1;
+            if (value_start < line.length() && line[value_start] == ' ') {
+                value_start++;
+            }
+            string header_value = line.substr(value_start);
+            req.headers[header_name] = header_value;
+        }
+    }
+
+    return req;
+}
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
@@ -67,27 +111,26 @@ int main(int argc, char **argv) {
     std::cerr << "Listen failed\n";
     return 1;
   }
-  string path;
-  size_t methodEnd = message.find(' ');  // find the index of space
-  if (methodEnd != std::string::npos) {
-    auto start = methodEnd + 1;
-    auto end = message.find(' ', start);
-    if (end != std::string::npos) {
-        path = message.substr(start, end - start);
-    }
-  }
+  HTTPRequest request = parse_request(message);
+  
   string response;
-  if (path == "/") {
+// Routing logic using the newly parsed request object
+  if (request.path == "/") {
     response = "HTTP/1.1 200 OK\r\n\r\n";
-  } else if(path.find("/echo/") == 0) {
-    std::string content = path.substr(6);
-    response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content;
+  } else if (request.path.find("/echo/") == 0) {
+    string content = request.path.substr(6);
+    response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(content.size()) + "\r\n\r\n" + content;
+  } else if (request.path == "/user-agent") {
+    // Read the specific header for this stage
+    string user_agent = request.headers["User-Agent"];
+    response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(user_agent.size()) + "\r\n\r\n" + user_agent;
   } else {
     response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
   }
 
   send(client_fd, response.c_str(), response.length(), 0);
   
+  close(client_fd);
   close(server_fd);
 
   return 0;
