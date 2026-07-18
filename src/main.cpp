@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
     response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
   }
 
-  send(client, response.c_str(), response.length(), 0);
+  send(client_fd, response.c_str(), response.length(), 0);
   
   close(server_fd);
 
