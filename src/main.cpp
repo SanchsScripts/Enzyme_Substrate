@@ -98,12 +98,12 @@ void handle_client(int client_fd, string directory) {
     string message(4096, '\0');
     ssize_t bytes_read = recv(client_fd, (void *)&message[0], message.size(), 0);
     
-    if (bytes_read == -1){
-        cerr << "Read failed\n";
-        close(client_fd);
-        return;
+    if (bytes_read <= 0){
+        if (bytes_read == -1) {
+            cerr << "Read failed\n";
+        }
+        break; // Break out of the while(true) loop to let the socket close
     }
-    
     message.resize(bytes_read);
     HTTPRequest request = parse_request(message);
     string response;
