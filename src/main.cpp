@@ -202,8 +202,8 @@ void handle_client(int client_fd, string directory) {
     }
 
     send(client_fd, response.c_str(), response.length(), 0);
-  }+
-    close(client_fd); 
+  }
+  close(client_fd); 
 }
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
