@@ -54,7 +54,7 @@ HTTPRequest parse_request(const string& request) {
 
     return req;
 }
-void handle_client(int client_fd) {
+void handle_client(int client_fd, string directory) {
     string message(1024, '\0');
     ssize_t bytes_read = recv(client_fd, (void *)&message[0], message.max_size(), 0);
     
@@ -77,12 +77,37 @@ void handle_client(int client_fd) {
     } else if (request.path == "/user-agent") {
         string user_agent = request.headers["User-Agent"];
         response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(user_agent.size()) + "\r\n\r\n" + user_agent;
+    } else if (request.path.find("/files/") == 0) {
+        // Extract the filename from the path
+        string filename = request.path.substr(7);
+        
+        // Safely construct the full file path
+        string filepath = directory;
+        if (!filepath.empty() && filepath.back() != '/') {
+            filepath += "/";
+        }
+        filepath += filename;
+
+        // Try to open the file in binary mode
+        ifstream file(filepath, ios::binary);
+        
+        if (file.is_open()) {
+            // Read the entire file contents into a stringstream
+            stringstream buffer;
+            buffer << file.rdbuf();
+            string file_contents = buffer.str();
+            
+            response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + to_string(file_contents.size()) + "\r\n\r\n" + file_contents;
+        } else {
+            // File does not exist or cannot be opened
+            response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+        }
     } else {
         response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
     }
 
     send(client_fd, response.c_str(), response.length(), 0);
-    close(client_fd); // Ensure the connection closes so the thread can finish
+    close(client_fd); 
 }
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
@@ -138,7 +163,7 @@ int main(int argc, char **argv) {
         cout << "Client connected\n";
         
         // Spawn a new thread for this client and let it run independently
-        thread client_thread(handle_client, client_fd);
+        thread client_thread(handle_client, client_fd,directory);
         client_thread.detach(); 
   }
 
