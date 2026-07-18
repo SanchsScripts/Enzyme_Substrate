@@ -63,13 +63,12 @@ int main(int argc, char **argv) {
   }
   std::cout << "Client connected\n";
   std::string message(1024, '\0');
-  if (recv(client, (void *)&message[0], message.max_size(), 0) == -1){
+  if (recv(client_fd, (void *)&message[0], message.max_size(), 0) == -1){
     std::cerr << "Listen failed\n";
     return 1;
   }
   string path;
   size_t methodEnd = message.find(' ');  // find the index of space
-   size_t methodEnd = message.find(' ');
   if (methodEnd != std::string::npos) {
     auto start = methodEnd + 1;
     auto end = message.find(' ', start);
