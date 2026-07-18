@@ -96,7 +96,7 @@ HTTPRequest parse_request(const string& request) {
 void handle_client(int client_fd, string directory) {
   while(true){
     string message(4096, '\0');
-    ssize_t bytes_read = recv(client_fd, (void *)&message[0], message.max_size(), 0);
+    ssize_t bytes_read = recv(client_fd, (void *)&message[0], message.size(), 0);
     
     if (bytes_read == -1){
         cerr << "Read failed\n";
