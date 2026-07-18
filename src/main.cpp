@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include<thread>
 #include <netdb.h>
 using namespace std;
 struct HTTPRequest {
@@ -53,6 +54,36 @@ HTTPRequest parse_request(const string& request) {
 
     return req;
 }
+void handle_client(int client_fd) {
+    string message(1024, '\0');
+    ssize_t bytes_read = recv(client_fd, (void *)&message[0], message.max_size(), 0);
+    
+    if (bytes_read == -1){
+        cerr << "Read failed\n";
+        close(client_fd);
+        return;
+    }
+    
+    message.resize(bytes_read);
+    HTTPRequest request = parse_request(message);
+    string response;
+    
+    // Routing logic
+    if (request.path == "/") {
+        response = "HTTP/1.1 200 OK\r\n\r\n";
+    } else if (request.path.find("/echo/") == 0) {
+        string content = request.path.substr(6);
+        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(content.size()) + "\r\n\r\n" + content;
+    } else if (request.path == "/user-agent") {
+        string user_agent = request.headers["User-Agent"];
+        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(user_agent.size()) + "\r\n\r\n" + user_agent;
+    } else {
+        response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+    }
+
+    send(client_fd, response.c_str(), response.length(), 0);
+    close(client_fd); // Ensure the connection closes so the thread can finish
+}
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
@@ -97,40 +128,21 @@ int main(int argc, char **argv) {
   int client_addr_len = sizeof(client_addr);
   
   std::cout << "Waiting for a client to connect...\n";
-  
-  int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
-  if (client_fd < 0)
-  {
-    std::cerr << "error handling client connection\n";
-    close(server_fd);
-    return 1;
-  }
-  std::cout << "Client connected\n";
-  std::string message(1024, '\0');
-  if (recv(client_fd, (void *)&message[0], message.max_size(), 0) == -1){
-    std::cerr << "Listen failed\n";
-    return 1;
-  }
-  HTTPRequest request = parse_request(message);
-  
-  string response;
-// Routing logic using the newly parsed request object
-  if (request.path == "/") {
-    response = "HTTP/1.1 200 OK\r\n\r\n";
-  } else if (request.path.find("/echo/") == 0) {
-    string content = request.path.substr(6);
-    response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(content.size()) + "\r\n\r\n" + content;
-  } else if (request.path == "/user-agent") {
-    // Read the specific header for this stage
-    string user_agent = request.headers["User-Agent"];
-    response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(user_agent.size()) + "\r\n\r\n" + user_agent;
-  } else {
-    response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+  while (true) {
+        int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
+        if (client_fd < 0) {
+            cerr << "error handling client connection\n";
+            continue; // Don't crash the server, just skip to the next potential client
+        }
+        
+        cout << "Client connected\n";
+        
+        // Spawn a new thread for this client and let it run independently
+        thread client_thread(handle_client, client_fd);
+        client_thread.detach(); 
   }
 
-  send(client_fd, response.c_str(), response.length(), 0);
   
-  close(client_fd);
   close(server_fd);
 
   return 0;
