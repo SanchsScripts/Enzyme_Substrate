@@ -51,11 +51,16 @@ HTTPRequest parse_request(const string& request) {
             req.headers[header_name] = header_value;
         }
     }
-
+    size_t body_start = request.find("\r\n\r\n");
+    if (body_start != string::npos) {
+        // We add 4 to body_start to skip the actual "\r\n\r\n" characters 
+        // and grab everything from that point to the end of the string.
+        req.body = request.substr(body_start + 4);
+    }
     return req;
 }
 void handle_client(int client_fd, string directory) {
-    string message(1024, '\0');
+    string message(4096, '\0');
     ssize_t bytes_read = recv(client_fd, (void *)&message[0], message.max_size(), 0);
     
     if (bytes_read == -1){
@@ -77,7 +82,36 @@ void handle_client(int client_fd, string directory) {
     } else if (request.path == "/user-agent") {
         string user_agent = request.headers["User-Agent"];
         response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(user_agent.size()) + "\r\n\r\n" + user_agent;
-    } else if (request.path.find("/files/") == 0) {
+    }
+    else if (request.method == "POST" && request.path.find("/files/") == 0) {
+        // 1. Extract the filename
+        string filename = request.path.substr(7);
+        
+        // 2. Build the full file path
+        string filepath = directory;
+        if (!filepath.empty() && filepath.back() != '/') {
+            filepath += "/";
+        }
+        filepath += filename;
+
+        // 3. Open an output file stream (ofstream) to create/write the file. 
+        // We use ios::binary to ensure we don't accidentally corrupt binary uploads (like images).
+        ofstream out_file(filepath, ios::binary);
+        
+        if (out_file.is_open()) {
+            // 4. Write the exact request body we parsed earlier into the newly created file
+            out_file << request.body;
+            out_file.close();
+            
+            // 5. Respond with 201 Created (Standard HTTP response for successful file creation)
+            response = "HTTP/1.1 201 Created\r\n\r\n";
+        } else {
+            // If the server lacks permissions to create a file in that directory, fail gracefully
+            response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+        }
+    } 
+    
+    else if (request.method=="GET" &&  request.path.find("/files/") == 0) {
         // Extract the filename from the path
         string filename = request.path.substr(7);
         
