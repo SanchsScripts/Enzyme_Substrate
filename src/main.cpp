@@ -94,6 +94,7 @@ HTTPRequest parse_request(const string& request) {
     return req;
 }
 void handle_client(int client_fd, string directory) {
+  while(true){
     string message(4096, '\0');
     ssize_t bytes_read = recv(client_fd, (void *)&message[0], message.max_size(), 0);
     
@@ -201,6 +202,7 @@ void handle_client(int client_fd, string directory) {
     }
 
     send(client_fd, response.c_str(), response.length(), 0);
+  }+
     close(client_fd); 
 }
 int main(int argc, char **argv) {
