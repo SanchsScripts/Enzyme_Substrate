@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include<thread>
 #include <netdb.h>
+#include <zlib.h>
 using namespace std;
 struct HTTPRequest {
     string method;
@@ -33,6 +34,39 @@ HTTPRequest parse_request(const string& request) {
         istringstream line_ss(line);
         line_ss >> req.method >> req.path >> req.version;
     }
+    string compress_gzip(const string& str) {
+    z_stream zs;                        // z_stream is zlib's control structure
+    memset(&zs, 0, sizeof(zs));
+
+    // Initialize with gzip formatting (15 | 16)
+    if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, 15 | 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+        cerr << "deflateInit2 failed while compressing." << endl;
+        return "";
+    }
+
+    zs.next_in = (Bytef*)str.data();
+    zs.avail_in = str.size();           // set the z_stream's input
+
+    int ret;
+    char outbuffer[32768];
+    string outstring;
+
+    // Retrieve the compressed bytes blockwise
+    do {
+        zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
+        zs.avail_out = sizeof(outbuffer);
+
+        ret = deflate(&zs, Z_FINISH);
+
+        if (outstring.size() < zs.total_out) {
+            // append the block to the output string
+            outstring.append(outbuffer, zs.total_out - outstring.size());
+        }
+    } while (ret == Z_OK);
+
+    deflateEnd(&zs);
+    return outstring;
+}
 
     // 2. Parse the Headers
     while (getline(ss, line) && line != "\r" && !line.empty()) {
