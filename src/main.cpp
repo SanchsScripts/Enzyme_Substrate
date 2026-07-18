@@ -53,18 +53,35 @@ int main(int argc, char **argv) {
   
   std::cout << "Waiting for a client to connect...\n";
   
-  while (true) {
-    int clien_socket = accept(server_fd, (struct sockaddr *)&client_addr,
-                              (socklen_t *)&client_addr_len);
-    if (clien_socket < 0) {
-      std::cerr << "Failed to connect to client ...\n";
-      continue;
-    }
-    std::cout << "Client connected\n";
-    send(clien_socket, "HTTP/1.1 200 OK\r\n\r\n", 25, 0);
-
-    close(clien_socket);
+  int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
+  if (client_fd < 0)
+  {
+    std::cerr << "error handling client connection\n";
+    close(server_fd);
+    return 1;
   }
+  std::cout << "Client connected\n";
+  std::string client_message(1024, '\0');
+  ssize_t brecvd = recv(client_fd, (void *)&client_message[0], client_message.max_size(), 0);
+  if (brecvd < 0)
+  {
+    std::cerr << "error receiving message from client\n";
+    close(client_fd);
+    close(server_fd);
+    return 1;
+  }
+  std::cerr << "Client Message (length: " << client_message.size() << ")" << std::endl;
+  std::clog << client_message << std::endl;
+  std::string response = client_message.starts_with("GET / HTTP/1.1\r\n") ? "HTTP/1.1 200 OK\r\n\r\n" : "HTTP/1.1 404 Not Found\r\n\r\n" ;
+  ssize_t bsent = send(client_fd, response.c_str(), response.size(), 0);
+  if (bsent < 0)
+  {
+    std::cerr << "error sending response to client\n";
+    close(client_fd);
+    close(server_fd);
+    return 1;
+  }
+  close(client_fd);
   close(server_fd);
   return 0;
 }
