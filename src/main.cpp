@@ -111,8 +111,34 @@ void handle_client(int client_fd, string directory) {
     if (request.path == "/") {
         response = "HTTP/1.1 200 OK\r\n\r\n";
     } else if (request.path.find("/echo/") == 0) {
+        
         string content = request.path.substr(6);
-        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(content.size()) + "\r\n\r\n" + content;
+        
+        // Check if the client sent the Accept-Encoding header AND if it contains "gzip"
+        bool supports_gzip = false;
+        if (request.headers.count("Accept-Encoding") > 0) {
+            string encodings = request.headers["Accept-Encoding"];
+            if (encodings.find("gzip") != string::npos) {
+                supports_gzip = true;
+            }
+        }
+
+        if (supports_gzip) {
+            // Compress the content and add the Content-Encoding header
+            string compressed_content = compress_gzip(content);
+            response = "HTTP/1.1 200 OK\r\n"
+                       "Content-Encoding: gzip\r\n"
+                       "Content-Type: text/plain\r\n"
+                       "Content-Length: " + to_string(compressed_content.size()) + "\r\n\r\n" + 
+                       compressed_content;
+        } else {
+            // Client doesn't support gzip, send normal plaintext
+            response = "HTTP/1.1 200 OK\r\n"
+                       "Content-Type: text/plain\r\n"
+                       "Content-Length: " + to_string(content.size()) + "\r\n\r\n" + 
+                       content;
+        }
+        
     } else if (request.path == "/user-agent") {
         string user_agent = request.headers["User-Agent"];
         response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + to_string(user_agent.size()) + "\r\n\r\n" + user_agent;
