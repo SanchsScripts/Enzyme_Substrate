@@ -202,6 +202,9 @@ void handle_client(int client_fd, string directory) {
     }
 
     send(client_fd, response.c_str(), response.length(), 0);
+    if (request.headers.count("Connection") > 0 && request.headers["Connection"] == "close") {
+        break; // Break out of the while loop to close the socket
+    }
   }
   close(client_fd); 
 }
