@@ -200,9 +200,19 @@ void handle_client(int client_fd, string directory) {
     } else {
         response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
     }
-
-    send(client_fd, response.c_str(), response.length(), 0);
+    bool close_connection = false;
     if (request.headers.count("Connection") > 0 && request.headers["Connection"] == "close") {
+        close_connection = true;
+        
+        // Find the blank line that separates headers from the body (\r\n\r\n)
+        size_t pos = response.find("\r\n\r\n");
+        if (pos != string::npos) {
+            // Insert our acknowledgement header right before the final \r\n
+            response.insert(pos + 2, "Connection: close\r\n");
+        }
+    }
+    send(client_fd, response.c_str(), response.length(), 0);
+    if (close_connection) {
         break; // Break out of the while loop to close the socket
     }
   }
